@@ -83,15 +83,16 @@ class GoogleV3(Geocoder):
         return 'http://%(domain)s/maps/api/geocode/json?%(params)s' % (
             {'domain': self.domain, 'params': urlencode(params)})
     
-    def geocode_url(self, url, exactly_one=True):
+    def geocode_url(self, url, exactly_one=True, return_json=False):
         '''Fetches the url and returns the result.'''
         util.logger.debug("Fetching %s..." % url)
         page = urlopen(url)
 
-        return self.parse_json(page, exactly_one)
+        return self.parse_json(page, exactly_one, return_json=return_json)
 
     def geocode(self, string, bounds=None, region=None,
-                language=None, sensor=False, exactly_one=True):
+                language=None, sensor=False, exactly_one=True,
+                return_json=False):
         '''Geocode an address.
 
         ``string`` (required) The address that you want to geocode.
@@ -111,6 +112,10 @@ class GoogleV3(Geocoder):
         ``sensor`` (required) Indicates whether or not the geocoding request
         comes from a device with a location sensor.
         This value must be either True or False.
+
+        ``return_json`` (optional) Indicates whether to return a copy of the
+        JSON provided by the geocoding service.
+        This value must be either True or False and defaults to False.
         '''
         if isinstance(string, unicode):
             string = string.encode('utf-8')
@@ -132,7 +137,7 @@ class GoogleV3(Geocoder):
         else:
             url = self.get_signed_url(params)
 
-        return self.geocode_url(url, exactly_one)
+        return self.geocode_url(url, exactly_one, return_json = return_json)
 
     def reverse(self, point, language=None, sensor=False, exactly_one=False):
         '''Reverse geocode a point.
@@ -164,7 +169,7 @@ class GoogleV3(Geocoder):
 
         return self.geocode_url(url, exactly_one)
 
-    def parse_json(self, page, exactly_one=True):
+    def parse_json(self, page, exactly_one=True, return_json=False):
         '''Returns location, (latitude, longitude) from json feed.'''
         if not isinstance(page, basestring):
             page = util.decode_page(page)
@@ -186,9 +191,13 @@ class GoogleV3(Geocoder):
             return (location, (latitude, longitude))
         
         if exactly_one:
-            return parse_place(places[0])
+            res = parse_place(places[0])
         else:
-            return [parse_place(place) for place in places]
+            res = [parse_place(place) for place in places]
+
+        if return_json:
+            return (res, self.doc)
+        return res
 
 def check_status(status):
     '''Validates error statuses.'''
